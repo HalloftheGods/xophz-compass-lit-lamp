@@ -25,7 +25,7 @@ Shed light on the dungeons of your castle.
 1. Ensure **Xophz COMPASS** is installed and active.
 2. Upload `xophz-compass-lit-lamp` to `/wp-content/plugins/`.
 3. Activate through the Plugins menu.
-4. Access via the COMPASS dashboard → **Lit Lamp**.
+4. Access via the My Compass dashboard → **Lit Lamp**.
 
 ## Frontend Routes
 
