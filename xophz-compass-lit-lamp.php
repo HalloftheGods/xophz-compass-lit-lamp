@@ -15,7 +15,7 @@
  * @wordpress-plugin
  * Category:          Castle Walls
  * Plugin Name:       Xophz Magic Lamp
- * Plugin URI:        http://www.mycompassconsulting.com/
+ * Plugin URI:        https://github.com/HalloftheGods/xophz-compass-lit-lamp
  * Description:       Shed light on the dungeons of your castle. 
  * Version:           26.4.24
  * Author:            Hall of the Gods, Inc.
