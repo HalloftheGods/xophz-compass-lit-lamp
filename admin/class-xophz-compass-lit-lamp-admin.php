@@ -573,7 +573,30 @@ class Xophz_Compass_Lit_Lamp_Admin {
 	}
 
 	/**
-	 * Get WP-Cron scheduled jobs
+	 * Determine source category of a cron hook name
+	 */
+	private function getCronHookSource($hook) {
+		if (strpos($hook, 'wp_') === 0 || strpos($hook, 'delete_expired_transients') === 0) {
+			return 'Core';
+		} elseif (strpos($hook, 'woocommerce_') === 0 || strpos($hook, 'action_scheduler_') === 0) {
+			return 'WooCommerce';
+		} elseif (strpos($hook, 'xophz_') === 0 || strpos($hook, 'youmeos_') === 0) {
+			return 'COMPASS';
+		}
+		return 'Plugin';
+	}
+
+	/**
+	 * Format seconds into human readable duration
+	 */
+	private function formatDurationSeconds($seconds) {
+		if ($seconds < 60) return $seconds . 's';
+		if ($seconds < 3600) return round($seconds / 60) . 'm';
+		return round($seconds / 3600) . 'h';
+	}
+
+	/**
+	 * Get WP-Cron scheduled jobs with execution status and metrics
 	 *
 	 * @since    1.0.0
 	 */
@@ -581,6 +604,13 @@ class Xophz_Compass_Lit_Lamp_Admin {
 		$crons = _get_cron_array();
 		$schedules = wp_get_schedules();
 		$jobs = array();
+		$now = time();
+
+		$history = get_option('_xophz_compass_cron_history', array());
+		if (!is_array($history)) $history = array();
+
+		$overdue_count = 0;
+		$failed_count = 0;
 
 		if (is_array($crons)) {
 			foreach ($crons as $timestamp => $cronhooks) {
@@ -593,36 +623,139 @@ class Xophz_Compass_Lit_Lamp_Admin {
 							$interval = $schedules[$schedule_name]['display'];
 						}
 
+						$is_overdue = ($timestamp < $now);
+						$overdue_secs = $is_overdue ? ($now - $timestamp) : 0;
+						$overdue_time = $is_overdue ? 'Overdue by ' . $this->formatDurationSeconds($overdue_secs) : '';
+
+						if ($is_overdue) {
+							$overdue_count++;
+						}
+
+						// Retrieve historical run metadata if recorded
+						$job_history = isset($history[$hook]) ? $history[$hook] : null;
+						$last_run = $job_history ? date('Y-m-d H:i:s', $job_history['timestamp']) : null;
+						$last_status = $job_history ? $job_history['status'] : ($is_overdue ? 'overdue' : 'pending');
+						$last_duration = $job_history ? $job_history['duration_ms'] : null;
+						$last_error = $job_history ? $job_history['error'] : null;
+
+						if ($last_status === 'failed') {
+							$failed_count++;
+						}
+
 						$jobs[] = array(
-							'hook'      => $hook,
-							'timestamp' => $timestamp,
-							'next_run'  => date('Y-m-d H:i:s', $timestamp),
-							'schedule'  => $schedule_name,
-							'interval'  => $interval,
-							'args'      => $data['args']
+							'hook'             => $hook,
+							'timestamp'        => $timestamp,
+							'next_run'         => date('Y-m-d H:i:s', $timestamp),
+							'schedule'         => $schedule_name,
+							'interval'         => $interval,
+							'args'             => $data['args'],
+							'is_overdue'       => $is_overdue,
+							'overdue_time'     => $overdue_time,
+							'last_run'         => $last_run,
+							'last_status'      => $last_status,
+							'last_duration_ms' => $last_duration,
+							'last_error'       => $last_error,
+							'source'           => $this->getCronHookSource($hook)
 						);
 					}
 				}
 			}
 		}
 
-		// Sort by next run time
+		// Sort by timestamp
 		usort($jobs, function($a, $b) {
 			return $a['timestamp'] - $b['timestamp'];
 		});
 
-		// Get cron status
+		// Get Action Scheduler stats if table exists
+		global $wpdb;
+		$as_stats = null;
+		$as_table = $wpdb->prefix . 'actionscheduler_actions';
+		if ($wpdb->get_var("SHOW TABLES LIKE '$as_table'") === $as_table) {
+			$as_counts = $wpdb->get_results("SELECT status, COUNT(*) as count FROM $as_table GROUP BY status");
+			$as_stats = array('pending' => 0, 'failed' => 0, 'complete' => 0, 'in_progress' => 0);
+			foreach ($as_counts as $row) {
+				if (isset($as_stats[$row->status])) {
+					$as_stats[$row->status] = (int)$row->count;
+				}
+			}
+		}
+
 		$cron_disabled = defined('DISABLE_WP_CRON') && DISABLE_WP_CRON;
 		$alternate_cron = defined('ALTERNATE_WP_CRON') && ALTERNATE_WP_CRON;
 
 		Xophz_Compass::output_json(array(
 			'success' => true,
 			'data'    => array(
-				'jobs'           => $jobs,
-				'total_count'    => count($jobs),
-				'schedules'      => $schedules,
-				'cron_disabled'  => $cron_disabled,
-				'alternate_cron' => $alternate_cron
+				'jobs'             => $jobs,
+				'total_count'      => count($jobs),
+				'overdue_count'    => $overdue_count,
+				'failed_count'     => $failed_count,
+				'schedules'        => $schedules,
+				'cron_disabled'    => $cron_disabled,
+				'alternate_cron'   => $alternate_cron,
+				'action_scheduler' => $as_stats
+			)
+		));
+	}
+
+	/**
+	 * Manually trigger execution of a cron job on demand
+	 */
+	public function runCronJob() {
+		$hook = isset($_REQUEST['hook']) ? sanitize_text_field($_REQUEST['hook']) : '';
+		$raw_args = isset($_REQUEST['cron_args']) ? $_REQUEST['cron_args'] : '[]';
+
+		if (empty($hook)) {
+			Xophz_Compass::output_json(array('success' => false, 'message' => 'Missing cron hook parameter'));
+			return;
+		}
+
+		$args = is_string($raw_args) ? json_decode(stripslashes($raw_args), true) : $raw_args;
+		if (!is_array($args)) $args = array();
+
+		$start_time = microtime(true);
+		$status = 'success';
+		$error_msg = null;
+
+		ob_start();
+		try {
+			do_action_ref_array($hook, $args);
+			$output = ob_get_clean();
+		} catch (\Throwable $e) {
+			ob_end_clean();
+			$status = 'failed';
+			$error_msg = $e->getMessage();
+		}
+
+		$duration_ms = round((microtime(true) - $start_time) * 1000, 2);
+
+		// Record execution history
+		$history = get_option('_xophz_compass_cron_history', array());
+		if (!is_array($history)) $history = array();
+
+		$history[$hook] = array(
+			'timestamp'   => time(),
+			'status'      => $status,
+			'duration_ms' => $duration_ms,
+			'error'       => $error_msg
+		);
+
+		// Keep up to 100 hook histories
+		if (count($history) > 100) {
+			$history = array_slice($history, -100, 100, true);
+		}
+
+		update_option('_xophz_compass_cron_history', $history);
+
+		Xophz_Compass::output_json(array(
+			'success' => ($status === 'success'),
+			'data'    => array(
+				'hook'        => $hook,
+				'status'      => $status,
+				'duration_ms' => $duration_ms,
+				'error'       => $error_msg,
+				'message'     => $status === 'success' ? "Cron hook '$hook' executed in {$duration_ms}ms" : "Execution failed: $error_msg"
 			)
 		));
 	}

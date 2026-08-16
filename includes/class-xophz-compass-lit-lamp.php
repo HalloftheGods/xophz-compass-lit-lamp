@@ -162,6 +162,7 @@ class Xophz_Compass_Lit_Lamp {
 		$this->loader->add_action( 'wp_ajax_get_logs', $plugin_admin, 'getLogs' );
 		$this->loader->add_action( 'wp_ajax_get_files', $plugin_admin, 'getFiles' );
 		$this->loader->add_action( 'wp_ajax_get_cron_jobs', $plugin_admin, 'getCronJobs' );
+		$this->loader->add_action( 'wp_ajax_run_cron_job', $plugin_admin, 'runCronJob' );
 
 	}
 
