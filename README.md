@@ -6,7 +6,7 @@ Shed light on the dungeons of your castle.
 
 ## Description
 
-**Magic Lamp** (Lit Lamp) is a site monitoring and activity logging plugin for COMPASS. It illuminates the dark corners of your WordPress installation by tracking user activity, system events, and configuration changes — providing a comprehensive audit trail.
+**Magic Lamp** (Lit Lamp) is a site monitoring and activity logging plugin for COMPASS. It illuminates the dark corners of your WordPress installation by tracking user activity, system events, and configuration changes - providing a comprehensive audit trail.
 
 ### Core Capabilities
 
