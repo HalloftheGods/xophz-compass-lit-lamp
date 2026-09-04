@@ -54,8 +54,7 @@ function activate_xophz_compass_lit_lamp() {
  * This action is documented in includes/class-xophz-compass-lit-lamp-deactivator.php
  */
 function deactivate_xophz_compass_lit_lamp() {
-	require_once plugin_dir_path( __FILE__ ) . 'includes/class-xophz-compass-lit-lamp-deactivator.php';
-	Xophz_Compass_Lit_Lamp_Deactivator::deactivate();
+	Xophz_Compass_Lit_Lamp::deactivate();
 }
 
 register_activation_hook( __FILE__, 'activate_xophz_compass_lit_lamp' );
