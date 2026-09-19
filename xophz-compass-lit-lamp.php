@@ -13,7 +13,7 @@
  * @package           Xophz_Compass_
  *
  * @wordpress-plugin
- * Category:          Castle Walls
+ * Category:          Wizard's Tower 
  * Group:             ITSM
  * Plugin Name:       Xophz Magic Lamp
  * Plugin URI:        https://github.com/HalloftheGods/xophz-compass-lit-lamp
