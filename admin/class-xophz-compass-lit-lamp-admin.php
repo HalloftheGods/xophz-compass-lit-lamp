@@ -702,7 +702,23 @@ class Xophz_Compass_Lit_Lamp_Admin {
 	/**
 	 * Manually trigger execution of a cron job on demand
 	 */
+	/**
+	 * Whether WP-Cron has $hook scheduled with exactly $args.
+	 * WP-Cron keys each event's args by md5(serialize($args)).
+	 */
+	private function isScheduledCronEvent($hook, $args) {
+		$crons = _get_cron_array();
+		if (!is_array($crons)) return false;
+		$key = md5(serialize($args));
+		foreach ($crons as $events) {
+			if (isset($events[$hook][$key])) return true;
+		}
+		return false;
+	}
+
 	public function runCronJob() {
+		Xophz_Compass_Security::enforce_spa_ajax( 'manage_options' );
+
 		$hook = isset($_REQUEST['hook']) ? sanitize_text_field($_REQUEST['hook']) : '';
 		$raw_args = isset($_REQUEST['cron_args']) ? $_REQUEST['cron_args'] : '[]';
 
@@ -713,6 +729,13 @@ class Xophz_Compass_Lit_Lamp_Admin {
 
 		$args = is_string($raw_args) ? json_decode(stripslashes($raw_args), true) : $raw_args;
 		if (!is_array($args)) $args = array();
+
+		// Only run an event that is actually scheduled, with the exact arguments it
+		// was scheduled with. Otherwise this would fire any action with any input.
+		if (!$this->isScheduledCronEvent($hook, $args)) {
+			Xophz_Compass::output_json(array('success' => false, 'message' => 'Not a scheduled cron event'));
+			return;
+		}
 
 		$start_time = microtime(true);
 		$status = 'success';
