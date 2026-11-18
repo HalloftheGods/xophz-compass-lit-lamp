@@ -18,7 +18,7 @@
  * Plugin Name:       Xophz Magic Lamp
  * Plugin URI:        https://github.com/HalloftheGods/xophz-compass-lit-lamp
  * Description:       Shed light on the dungeons of your castle. 
- * Version:           26.11.6-1341
+ * Version:           26.11.18-276
  * Author:            My Compass Consulting
  * Author URI:        https://mycompassconsulting.com/
  * License:           GPL-2.0+
@@ -38,7 +38,7 @@ if ( ! defined( 'WPINC' ) ) {
  * Start at version 1.0.0 and use SemVer - https://semver.org
  * Rename this for your plugin and update it as you release new versions.
  */
-define( 'XOPHZ_COMPASS_LIT_LAMP_VERSION', '26.11.7' );
+define( 'XOPHZ_COMPASS_LIT_LAMP_VERSION', '26.11.18-276' );
 
 /**
  * The code that runs during plugin activation.
